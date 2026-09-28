@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   Heart,
@@ -84,32 +84,54 @@ function CatIllustration({ mood }: { mood: CatMood }) {
 }
 
 function Gauge({ love, onChange }: { love: number; onChange: (value: number) => void }) {
+  const zoneRef = useRef<HTMLDivElement>(null);
   const activeLength = Math.max(0, Math.min(251.2, (love / 1000) * 251.2));
   const angle = -180 + (love / 1000) * 180;
   const knobX = 100 + Math.cos((angle * Math.PI) / 180) * 80;
   const knobY = 106 + Math.sin((angle * Math.PI) / 180) * 80;
-  const updateFromPointer = (event: React.PointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+  const updateFromClientX = (clientX: number) => {
+    const rect = zoneRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     onChange(Math.round(ratio * 1000));
   };
+  const updateFromPointer = (event: React.PointerEvent<HTMLDivElement>) => updateFromClientX(event.clientX);
   return (
-    <div className="gauge-zone" onPointerDown={updateFromPointer} onPointerMove={(event) => event.buttons === 1 && updateFromPointer(event)}>
+    <div ref={zoneRef} className="gauge-zone" onPointerDown={updateFromPointer} onPointerMove={(event) => event.buttons === 1 && updateFromPointer(event)}>
       <svg viewBox="0 0 200 126" className="gauge-svg" aria-hidden="true">
         <path d="M20 106 A80 80 0 0 1 180 106" fill="none" stroke="#f5c9d0" strokeWidth="16" strokeLinecap="round" />
-        <path d="M20 106 A80 80 0 0 1 180 106" fill="none" stroke="#d55775" strokeWidth="16" strokeLinecap="round" strokeDasharray={`${activeLength} 251.2`} />
+        <path d="M20 106 A80 80 0 0 1 180 106" fill="none" stroke="#d55775" strokeWidth="16" strokeLinecap="butt" strokeDasharray={`${activeLength} 251.2`} />
         <path d="M20 106 A80 80 0 0 1 180 106" fill="none" stroke="#fbe5e8" strokeWidth="3" strokeDasharray="2 14" strokeLinecap="round" opacity=".8" />
         <line x1="100" y1="106" x2={knobX} y2={knobY} stroke="#a83656" strokeWidth="3" strokeLinecap="round" />
-        <circle cx={knobX} cy={knobY} r="10" fill="#fffaf9" stroke="#c94969" strokeWidth="3" />
         <text x="100" y="100" textAnchor="middle" className="gauge-number">{love}%</text>
         <text x="100" y="119" textAnchor="middle" className="gauge-label">love</text>
         <text x="20" y="124" className="gauge-end-label">0</text>
         <text x="171" y="124" className="gauge-end-label">∞</text>
       </svg>
+      <button
+        type="button"
+        className="gauge-handle"
+        style={{ left: `${10 + (love / 1000) * 80}%` }}
+        aria-label="Drag to change how much you love me"
+        onPointerDown={(event) => {
+          event.stopPropagation();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          updateFromClientX(event.clientX);
+        }}
+        onPointerMove={(event) => event.currentTarget.hasPointerCapture(event.pointerId) && updateFromClientX(event.clientX)}
+        onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
+      >
+        ♥
+      </button>
       <input className="gauge-input" type="range" min="0" max="1000" value={love} onChange={(event) => onChange(Number(event.target.value))} aria-label="How much do you love me?" />
       <div className="gauge-hint">drag the heart all the way</div>
     </div>
   );
+}
+
+function MemoryStrip({ photos }: { photos: string[] }) {
+  if (!photos.length) return null;
+  return <div className="memory-strip" aria-label="your uploaded memories">{photos.map((photo, index) => <img key={`${photo}-${index}`} src={photo} alt={`uploaded memory ${index + 1}`} />)}</div>;
 }
 
 function GiftBox({ variant, onClick }: { variant: "one" | "two" | "three"; onClick: () => void }) {
@@ -189,11 +211,35 @@ function Home() {
   const [screen, setScreen] = useState<Screen>("test");
   const [love, setLove] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [songUrl, setSongUrl] = useState<string | null>(null);
+  const [songName, setSongName] = useState("BIRDS OF A FEATHER");
+  const [personName, setPersonName] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [personalizeOpen, setPersonalizeOpen] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const mood = useMemo(() => getMood(love), [love]);
   const isCorrect = love >= 1000;
 
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (playing && songUrl) audioRef.current.play().catch(() => setPlaying(false));
+    else audioRef.current.pause();
+  }, [playing, songUrl]);
+
   const goHub = () => setScreen("hub");
   const backToHub = () => setScreen("hub");
+  const handleSongUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (songUrl) URL.revokeObjectURL(songUrl);
+    setSongUrl(URL.createObjectURL(file));
+    setSongName(file.name.replace(/\.[^/.]+$/, "").slice(0, 28).toUpperCase());
+    setPlaying(false);
+  };
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []).slice(0, 3);
+    setPhotos(files.map((file) => URL.createObjectURL(file)));
+  };
 
   return (
     <main className="gift-app">
@@ -216,6 +262,12 @@ function Home() {
             <div className="hub-kicker">a tiny collection of love</div>
             <h1>You passed the love test</h1>
             <p className="hub-subtitle">Your surprises are waiting for you</p>
+            <button className="personalize-toggle" onClick={() => setPersonalizeOpen(!personalizeOpen)}>{personalizeOpen ? "Hide personalization" : "Add your name & photos"}</button>
+            {personalizeOpen && <div className="personalize-panel">
+              <label>Your name<input value={personName} onChange={(event) => setPersonName(event.target.value)} placeholder="e.g. Sara" /></label>
+              <label>Real photos <span className="file-label"><input type="file" accept="image/*" multiple onChange={handlePhotoUpload} /> choose up to 3</span></label>
+              {photos.length ? <MemoryStrip photos={photos} /> : <p className="personalize-note">Your photos will appear inside the surprises.</p>}
+            </div>}
             <div className="gift-row">
               <GiftBox variant="one" onClick={() => setScreen("bouquet")} />
               <GiftBox variant="two" onClick={() => setScreen("birds")} />
@@ -232,6 +284,7 @@ function Home() {
             <div className="gift-kicker">a little something for you</div>
             <h1>Your Bouquet</h1>
             <p className="gift-intro">for the person who makes everything bloom</p>
+            <MemoryStrip photos={photos} />
             <div className="bouquet-layout">
               <div className="bouquet-notes bouquet-notes-left">{bouquetNotes.slice(0, 3).map((note) => <span key={note}>{note}</span>)}</div>
               <BouquetIllustration />
@@ -249,10 +302,12 @@ function Home() {
             <BirdsIllustration />
             <div className="music-player">
               <div className="music-icon"><Music2 size={16} /></div>
-              <div className="music-meta"><strong>BIRDS OF A FEATHER</strong><span>Billie Eilish</span></div>
+              <div className="music-meta"><strong>{songName}</strong><span>{songUrl ? "your uploaded song" : "Billie Eilish · upload your own below"}</span></div>
               <button className="music-control" onClick={() => setPlaying(!playing)} aria-label={playing ? "Pause music" : "Play music"}>{playing ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}</button>
               <div className="music-mini-controls"><SkipBack size={13} /><SkipForward size={13} /></div>
             </div>
+            <label className="audio-upload"><Music2 size={14} /> {songUrl ? "Replace song" : "Add your own song"}<input type="file" accept="audio/*" onChange={handleSongUpload} /></label>
+            {songUrl && <audio ref={audioRef} src={songUrl} onEnded={() => setPlaying(false)} />}
             <p className="birds-caption">two little souls, one beautiful story ♡</p>
             <button className="outline-button" onClick={backToHub}>Next <ChevronRight size={17} /></button>
           </section>
@@ -265,12 +320,14 @@ function Home() {
             <h1>A Letter From My Heart</h1>
             <div className="letter-paper">
               <div className="letter-floral-edge">✿<br />❀<br />✿<br />❀<br />✿</div>
+              {personName && <p className="letter-to">For {personName} ♡</p>}
               <p>You make my life feel more beautiful and meaningful, and I feel so lucky to have you. I love you wholeheartedly, and I can't wait to continue loving you for the rest of my life.</p>
               <p>You make me smile, you make me feel safe, and you bring so much happiness into my world. I know I tell you this every day, but you truly are the most beautiful person in my eyes.</p>
               <p>Thank you for being you and for filling my heart with so much love. No matter what happens, I will always choose you.</p>
               <p className="letter-signoff">Always, forever. <Heart size={15} fill="currentColor" /></p>
               <LetterCat />
             </div>
+            <MemoryStrip photos={photos} />
             <button className="outline-button" onClick={backToHub}>Next <ChevronRight size={17} /></button>
           </section>
         )}

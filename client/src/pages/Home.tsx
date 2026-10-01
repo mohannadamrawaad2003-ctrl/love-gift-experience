@@ -106,24 +106,28 @@ function Gauge({ love, onChange }: { love: number; onChange: (value: number) => 
         <text x="20" y="124" className="gauge-end-label">0</text>
         <text x="171" y="124" className="gauge-end-label">∞</text>
       </svg>
-      <input className="gauge-input" type="range" min="0" max="1000" value={love} onChange={(event) => onChange(Number(event.target.value))} aria-label="How much do you love me?" />
+      <div className="slider-label-row"><span>0%</span><strong>slide me ♡</strong><span>1000%</span></div>
+      <input className="love-slider" type="range" min="0" max="1000" value={love} onChange={(event) => onChange(Number(event.target.value))} aria-label="Slide to choose how much you love me" />
       <div className="gauge-hint">drag the heart all the way</div>
     </div>
   );
 }
 
 function GiftBox({ variant, onClick }: { variant: "one" | "two" | "three"; onClick: () => void }) {
+  const gradientId = `gift-gradient-${variant}`;
   return (
     <button className={`gift-button gift-${variant}`} onClick={onClick} aria-label={`Open ${variant} surprise`}>
       <span className="gift-shadow" />
       <svg viewBox="0 0 140 150" className="gift-svg" aria-hidden="true">
-        <path d="M22 54h96v70H22z" fill="#9ed7e6" stroke="#79baca" strokeWidth="3" />
-        <path d="M18 48h104v21H18z" fill="#a9dfe9" stroke="#79baca" strokeWidth="3" />
+        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#c8edf2" /><stop offset="1" stopColor="#8bcddd" /></linearGradient></defs>
+        <rect x="22" y="54" width="96" height="70" rx="8" fill={`url(#${gradientId})`} stroke="#71b4c6" strokeWidth="3" />
+        <rect x="18" y="48" width="104" height="21" rx="6" fill="#b6e6ec" stroke="#71b4c6" strokeWidth="3" />
         <path d="M67 48h26v76H67z" fill="#ed8ca1" opacity=".98" />
         <path d="M22 76h96" stroke="#e77991" strokeWidth="3" opacity=".55" />
-        <path d="M70 48c-28 0-38-11-34-20 4-9 18-5 29 7 7 7 9 13 9 13Z" fill="#f08fa4" stroke="#cc6b83" strokeWidth="3" />
-        <path d="M84 48c28 0 38-11 34-20-4-9-18-5-29 7-7 7-9 13-9 13Z" fill="#f08fa4" stroke="#cc6b83" strokeWidth="3" />
+        <path d="M70 48c-28 0-38-11-34-20 4-9 18-5 29 7 7 7 9 13 9 13Z" fill="#f6a5b5" stroke="#c96b82" strokeWidth="3" />
+        <path d="M84 48c28 0 38-11 34-20-4-9-18-5-29 7-7 7-9 13-9 13Z" fill="#f6a5b5" stroke="#c96b82" strokeWidth="3" />
         <path d="M72 37c3-8 11-8 14 0-1 8-5 11-7 12-3-2-7-5-7-12Z" fill="#e87991" />
+        <path d="M32 88h24M32 96h13M99 88h10" stroke="#e9f8f9" strokeWidth="4" strokeLinecap="round" opacity=".8" />
         <path d="M32 93h12M98 105h10M47 111h8" stroke="#c7e9ef" strokeWidth="4" strokeLinecap="round" opacity=".8" />
       </svg>
     </button>
@@ -146,7 +150,12 @@ function BouquetIllustration() {
       <path d="M77 258q40 20 80 1" fill="none" stroke="#ede1d7" strokeWidth="3" />
       <path d="M92 226q28 16 60 1" fill="none" stroke="#d95867" strokeWidth="7" strokeLinecap="round" />
       <path d="m124 243 9 10-9 11-9-11Z" fill="#efbf4f" stroke="#d49c34" strokeWidth="2" />
-      {roses.map(([cx, cy, r], index) => <g key={index}><circle cx={cx} cy={cy} r={r} fill="#c84651" stroke="#a82f3c" strokeWidth="2" /><path d={`M${cx-r*.7} ${cy}q${r*.7-r*.35} ${-r*.8} ${r*.9} 0q${-r*.6} ${r*.7} ${r*.9} ${0}q${-r*.5} ${r*.8} ${-r*1.1} 0`} fill="none" stroke="#ef7d83" strokeWidth="2" opacity=".8" /></g>)}
+      {roses.map(([cx, cy, r], index) => <g key={index} transform={`translate(${cx} ${cy}) scale(${r / 13})`}>
+        <circle r="13" fill="#b93646" stroke="#922d3b" strokeWidth="2" />
+        <path d="M-10-2q4-10 10-4 6-6 10 4-4 1-5 7 1 4-5 7-6-3-5-7-1-6-5-7Z" fill="#e95762" />
+        <path d="M-7-2q5-5 7 1 3-6 7-1-2 4-7 8-5-4-7-8Z" fill="#f37b80" />
+        <path d="M-2-2q2-3 4 0 2-3 4 0-2 4-4 6-3-2-4-6Z" fill="#ffd0c8" opacity=".85" />
+      </g>)}
     </svg>
   );
 }
